@@ -10,7 +10,7 @@ Requirements
 * `willie <http://willie.dftba.net/>`_
 * A Challonge API key
 
-Note that depending on ``willie`` requires Python 2.7 or higher to be used, as well. ``pychallonge`` also requires `dateutil <http://labix.org/python-dateutil>`_ be installed, as well.
+Note that depending on ``willie`` requires Python 2.7 or higher. ``pychallonge`` also requires `dateutil <http://labix.org/python-dateutil>`_ be installed, as well.
 
 
 Installation
@@ -24,7 +24,7 @@ Be sure to modify the ``CHALLONGE_USERNAME``, ``TOURNAMENT_NAME``, and ``API_KEY
 Running challongebot
 ====================
 
-* Start up ``willie as per normal. See the ``willie`` documentation for more on this.
+* Start up ``willie`` as per normal. See the ``willie`` documentation for more on this.
 * Type ``.setup`` to initialize ``challongebot``.
 * Use the ``.update`` command to have ``challongebot`` update the brackets.
 
