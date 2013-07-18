@@ -10,6 +10,8 @@ challonge.set_credentials(CHALLONGE_USERNAME, API_KEY)
 
 tournament_id = None
 participants = {}
+gfwl_ids = {}
+
 
 def command_setup(willie, trigger):
 
@@ -38,16 +40,14 @@ command_setup.priority = 'medium'
 def command_pending(willie, trigger):
 
    willie.say('Pending matches:')
-
    pending_matches = challonge.matches.index(tournament_id, state='open')
 
    for match in pending_matches:
-
-      pprint.pprint(match)
-
       player_1 = participants[match['player1-id']]
+      player_1_gfwl = gfwl_id[player_1]
       player_2 = participants[match['player2-id']]
-      willie.say('%s vs. %s' % (player_1, player_2))
+      player_2_gfwl = gfwl_id[player_2]
+      willie.say('%s vs. %s' % (player_1_gfwl, player_2_gfwl))
 
 
 command_pending.commands = ['pending']
@@ -57,7 +57,6 @@ command_pending.priority = 'medium'
 def command_update(willie, trigger):
 
       PLAYER1, PLAYER2, TIE = range(3)
-
       args = trigger.group().split()
 
       try:
@@ -98,5 +97,48 @@ def command_update(willie, trigger):
       challonge.matches.update(tournament_id, match_id, scores_csv=score_csv, winner_id=winner_id)
       willie.say('Finished.')
 
+
 command_update.commands = ['update']
 command_update.priority = 'medium'
+
+
+def command_checkin(willie, trigger):
+
+   args = trigger.group().split()
+   try:
+      bracket_name = args[1]
+   except IndexError:
+      willie.say('Bracket name not given.')
+      return
+
+   if bracket_name not in participants.keys():
+      willie.say('No-one exists in the tournament under "%s"' % bracket_name)
+      return
+      
+   try:
+      username = args[2]
+   except IndexError:
+      username = trigger.nick
+   gfwl_ids[bracket_name] = username
+
+   willie.say('%s (GFWL ID %s) checked in' % (trigger.nick, username))
+
+
+def command_rollcall(willie, trigger):
+
+   if trigger.owner is False:
+      willie.say('You can\'t tell me what to do!')
+      return
+
+   missing_users = set(particpants.iterkeys()) - set(gfwl_ids.iterkeys())
+   if len(missing_users) == 0:
+      willie.say('Everyone has checked in.')
+      return
+
+   willie.say('Missing users:')
+   for user in missing_users:
+      willie.say(user)
+      
+
+command_checkin.commands = ['checkin']
+command_checkin.priority = 'medium'
