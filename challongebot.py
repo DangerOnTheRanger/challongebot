@@ -4,6 +4,9 @@ import challonge
 CHALLONGE_USERNAME = ''
 TOURNAMENT_NAME = ''
 API_KEY = ''
+GFWL_ID_COLUMN = 'challongebot_gfwl_id'
+CHALLONGE_ID_COLUMN = 'challongebot_challonge_id'
+DB_COLUMNS = (GFWL_ID_COLUMN, CHALLONGE_ID_COLUMN)
 
 assert CHALLONGE_USERNAME and TOURNAMENT_NAME and API_KEY != ''
 challonge.set_credentials(CHALLONGE_USERNAME, API_KEY)
@@ -11,6 +14,15 @@ challonge.set_credentials(CHALLONGE_USERNAME, API_KEY)
 tournament_id = None
 participants = {}
 gfwl_ids = {}
+
+
+def setup(willie):
+
+   if willie.db and willie.db.preferences.has_columns(DB_COLUMNS) is False:
+      willie.db.preferences.add_columns(DB_COLUMNS)
+
+   preloaded_ids = willie.db.preferences.get(DB_COLUMNS)
+   print preloaded_ids
 
 
 def command_setup(willie, trigger):
@@ -28,6 +40,7 @@ def command_setup(willie, trigger):
    global participants
    players = challonge.participants.index(tournament_id)
    for player_data in players:
+      print player_data['challonge-username'] or player_data['name']
       participants[player_data['id']] = player_data['challonge-username'] or player_data['name']
 
    willie.say('Finished.')
@@ -44,10 +57,16 @@ def command_pending(willie, trigger):
 
    for match in pending_matches:
       player_1 = participants[match['player1-id']]
-      player_1_gfwl = gfwl_id[player_1]
+      try:
+         player_1 = gfwl_ids[player_1]
+      except KeyError:
+         pass
       player_2 = participants[match['player2-id']]
-      player_2_gfwl = gfwl_id[player_2]
-      willie.say('%s vs. %s' % (player_1_gfwl, player_2_gfwl))
+      try:
+         player_2 = gfwl_ids[player_2]
+      except KeyError:
+         pass
+      willie.say('%s vs. %s' % (player_1, player_2))
 
 
 command_pending.commands = ['pending']
@@ -106,22 +125,50 @@ def command_checkin(willie, trigger):
 
    args = trigger.group().split()
    try:
-      bracket_name = args[1]
+      args[1]
    except IndexError:
-      willie.say('Bracket name not given.')
+      gfwl_id, challonge_id = willie.db.preferences.get(trigger.nick, DB_COLUMNS)
+      if not challonge_id:
+         willie.say('Bracket name not given.')
+         return
+      gfwl_ids[challonge_id] = gfwl_id
+      willie.say('Found saved credentials (GFWL %s, Challonge ID %s)' % (gfwl_id, challonge_id))
+      willie.say('%s (GFWL ID %s) checked in' % (challonge_id, gfwl_id))
       return
 
-   if bracket_name not in participants.keys():
+   if args[1].startswith('"') is False:
+      bracket_name = args[1]
+   else:
+      bracket_name = args[1][1:]
+      args.pop(0)
+      args.pop(0)
+      while True:
+         try:
+            bracket_name = ' '.join([bracket_name, args.pop(0)])
+            if bracket_name.endswith('"') is True:
+               bracket_name = bracket_name[:-1]
+               break
+         except IndexError:
+            willie.say('No ending " found in argument list.')
+            return
+
+   if bracket_name not in participants.values():
       willie.say('No-one exists in the tournament under "%s"' % bracket_name)
       return
-      
    try:
-      username = args[2]
+      if len(args) > 1:
+      	username = ' '.join(args)
+      else:
+	      username = args[0]
    except IndexError:
       username = trigger.nick
    gfwl_ids[bracket_name] = username
+   willie.db.preferences.update(trigger.nick, {GFWL_ID_COLUMN: username, CHALLONGE_ID_COLUMN: bracket_name})
+   willie.say('%s (GFWL ID %s) checked in' % (bracket_name, username))
 
-   willie.say('%s (GFWL ID %s) checked in' % (trigger.nick, username))
+
+command_checkin.commands = ['checkin']
+command_checkin.priority = 'medium'
 
 
 def command_rollcall(willie, trigger):
@@ -130,7 +177,7 @@ def command_rollcall(willie, trigger):
       willie.say('You can\'t tell me what to do!')
       return
 
-   missing_users = set(particpants.iterkeys()) - set(gfwl_ids.iterkeys())
+   missing_users = set(participants.itervalues()) - set(gfwl_ids.iterkeys())
    if len(missing_users) == 0:
       willie.say('Everyone has checked in.')
       return
@@ -138,7 +185,7 @@ def command_rollcall(willie, trigger):
    willie.say('Missing users:')
    for user in missing_users:
       willie.say(user)
-      
+     
 
-command_checkin.commands = ['checkin']
-command_checkin.priority = 'medium'
+command_rollcall.commands = ['rollcall']
+command_rollcall.priority = 'medium'
